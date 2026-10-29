@@ -1,0 +1,33 @@
+[project]
+name = "promotion-performance-us"
+version = "1.0.0"
+description = "Amazon SP-API promotion performance report -> JSON -> pandas -> MySQL"
+requires-python = ">=3.11"
+dependencies = [
+    "requests>=2.32.0",
+    "pandas>=2.2.0",
+    "numpy>=1.26.0",
+    "sqlalchemy>=2.0.30",
+    "mysql-connector-python>=9.0.0",
+    "python-dotenv>=1.0.1",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# The app is run from the project root, not installed, so put the root on
+# sys.path -- otherwise `uv run pytest` cannot import `app`.
+pythonpath = ["."]
+addopts = "-q --strict-markers -m 'not live'"
+markers = [
+    "live: touches the real SP-API or a real MySQL server; deselected by default",
+]
+filterwarnings = [
+    # The SQLite test backend's datetime adapter; MySQL is unaffected.
+    "ignore:The default datetime adapter is deprecated:DeprecationWarning",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.2.0",
+    "pytest-cov>=5.0.0",
+]

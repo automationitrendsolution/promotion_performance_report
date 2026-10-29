@@ -328,5 +328,3 @@ alignment, rollback, the lock and log redaction.
 | A failed insert left promotions deleted | A failed insert undoes the delete |
 | Needed AWS keys and an IAM role | Not needed |
 | JSON → CSV → table (numeric-looking IDs lost leading zeros) | JSON → table directly |
-#   p r o m o t i o n _ p e r f o r m a n c e _ r e p o r t -  
- 
