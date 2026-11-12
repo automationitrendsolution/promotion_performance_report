@@ -112,8 +112,9 @@ Use **either** systemd (preferred) **or** cron, not both.
 The recommended schedule is once a day. Each run re-reads the promotions that
 started in the last `PROMOTION_LOOKBACK_DAYS` and replaces their rows, so a
 missed day heals itself on the next run. A run normally takes a few minutes, and
-most of that is waiting for Amazon. `REPORT_POLL_TIMEOUT_SECONDS` (30 minutes)
-caps it.
+most of that is waiting for Amazon. `REPORT_POLL_TIMEOUT_SECONDS` (2 hours)
+caps it. If Amazon has not finished by then, the next run reuses that same
+report instead of adding another one to Amazon's queue.
 
 ### Option A: systemd timer
 
@@ -131,7 +132,7 @@ User=promoflow
 Group=promoflow
 WorkingDirectory=/opt/promoflow
 ExecStart=/usr/local/bin/uv run --no-sync python run.py
-TimeoutStartSec=3600
+TimeoutStartSec=10800
 Nice=10
 # Exit 10 (no promotions in the window) is not a failure.
 SuccessExitStatus=10

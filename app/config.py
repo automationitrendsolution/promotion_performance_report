@@ -298,7 +298,7 @@ def load_settings(env_file: Path | str | None = None, *, override: bool = False)
         marketplace_ids=_get_list("MARKETPLACE_IDS", DEFAULT_MARKETPLACE_IDS),
         lookback_days=_get_int("PROMOTION_LOOKBACK_DAYS", 30, minimum=1),
         poll_interval_seconds=_get_float("REPORT_POLL_INTERVAL_SECONDS", 30.0, minimum=1.0),
-        poll_timeout_seconds=_get_float("REPORT_POLL_TIMEOUT_SECONDS", 1800.0, minimum=1.0),
+        poll_timeout_seconds=_get_float("REPORT_POLL_TIMEOUT_SECONDS", 7200.0, minimum=1.0),
         table=_get("DB_TABLE", DEFAULT_TABLE) or DEFAULT_TABLE,
         key_column=_get("DB_KEY_COLUMN", DEFAULT_KEY_COLUMN) or DEFAULT_KEY_COLUMN,
         create_tables=_get_bool("CREATE_TABLES", False),

@@ -1,6 +1,6 @@
 """Selling Partner API client: LWA tokens and the Reports API (2021-06-30).
 
-    createReport -> getReport (poll) -> getReportDocument -> download
+    [getReports] -> createReport -> getReport (poll) -> getReportDocument -> download
 
 Calls are authorised with an LWA access token in ``x-amz-access-token``.  SP-API
 stopped requiring AWS Signature Version 4 in October 2023, so no IAM user,
@@ -18,6 +18,7 @@ import time
 import zlib
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import timedelta
 from pathlib import Path
 from typing import Any, TypeVar
 
@@ -35,7 +36,7 @@ from .exceptions import (
 )
 from .logging_config import get_logger
 from .retry import retry_call
-from .timeutils import ReportWindow, timestamp_label
+from .timeutils import ReportWindow, isoformat_z, now_utc, timestamp_label
 
 logger = get_logger("sp_api")
 
@@ -47,6 +48,12 @@ USER_AGENT = f"PromoFlow/{__version__} (Language=Python)"
 
 #: HTTP statuses a second attempt can plausibly get past.
 TRANSIENT_HTTP_STATUSES = frozenset({408, 429, 500, 502, 503, 504})
+
+#: Statuses of a report Amazon has accepted but not finished.
+PENDING_STATUSES = ("IN_QUEUE", "IN_PROGRESS")
+
+#: A pending report older than this is not reused; a fresh one is requested.
+PENDING_REPORT_MAX_AGE = timedelta(hours=24)
 
 #: LWA tokens live for an hour; refresh this long before Amazon would refuse one.
 _TOKEN_EXPIRY_MARGIN_SECONDS = 60
@@ -225,6 +232,49 @@ class ReportsClient:
         )
         return str(report_id)
 
+    def find_pending_report(self) -> str | None:
+        """The newest promotion report Amazon is still building, if any.
+
+        A run that times out leaves its report in Amazon's queue.  Requesting
+        another one on the next run only lengthens that queue, so the newest
+        pending report from the last :data:`PENDING_REPORT_MAX_AGE` is reused
+        instead.  The lookup is best effort: if it fails, a new report is
+        requested as before.
+        """
+        params = {
+            "reportTypes": REPORT_TYPE,
+            "processingStatuses": ",".join(PENDING_STATUSES),
+            "marketplaceIds": ",".join(self._settings.marketplace_ids),
+            "createdSince": isoformat_z(now_utc() - PENDING_REPORT_MAX_AGE),
+            "pageSize": 100,
+        }
+        try:
+            payload = self._call(
+                "getReports",
+                lambda: self._api("GET", f"{REPORTS_PATH}/reports", params=params),
+            )
+        except ReportRequestError as exc:
+            logger.warning("Could not list pending reports (%s); requesting a new one", exc)
+            return None
+
+        reports = [
+            r
+            for r in payload.get("reports") or []
+            if isinstance(r, dict)
+            and r.get("reportId")
+            and r.get("processingStatus") in PENDING_STATUSES
+        ]
+        if not reports:
+            return None
+        newest = max(reports, key=lambda r: str(r.get("createdTime") or ""))
+        logger.info(
+            "Reusing report %s (%s, requested %s) instead of requesting a new one",
+            newest["reportId"],
+            newest["processingStatus"],
+            newest.get("createdTime") or "?",
+        )
+        return str(newest["reportId"])
+
     def get_report(self, report_id: str) -> ReportStatus:
         payload = self._call(
             "getReport", lambda: self._api("GET", f"{REPORTS_PATH}/reports/{report_id}")
@@ -326,6 +376,7 @@ class ReportsClient:
         path: str,
         *,
         json: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
         expected: tuple[int, ...] = (200,),
     ) -> dict[str, Any]:
         """One authorised SP-API call, with its failure classified."""
@@ -339,6 +390,7 @@ class ReportsClient:
                 method,
                 f"{self._config.endpoint}{path}",
                 json=json,
+                params=params,
                 headers=headers,
                 timeout=self._config.timeout_seconds,
             )

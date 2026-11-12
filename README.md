@@ -83,7 +83,7 @@ the data already in MySQL is untouched.**
 | `EmptyReportError` | No promotions started in the last 30 days. | Nothing. This is normal. |
 | `AuthenticationError` | Amazon no longer accepts the login. Usually the app was disconnected in Seller Central. | Reconnect the app in Seller Central and put the new refresh token in `.env`. |
 | `DatabaseError` | MySQL was unreachable or refused the save. | Check that the database server is up, then run again. The downloaded report is in `data\failed\`. |
-| `still IN_PROGRESS` | Amazon took more than 30 minutes. | Run again later. The message shows a command that picks up the same report. |
+| `still IN_QUEUE` / `still IN_PROGRESS` | Amazon took more than 2 hours. | Nothing. The next run picks up the same report instead of asking for a new one. To load it sooner, run the command shown in the message. |
 | `FATAL` | Amazon could not build the report. | Run again. If it keeps happening, see [Troubleshooting](#troubleshooting). |
 | `LockError` | It was already running. | Nothing. The second copy stopped on purpose. |
 | `Configuration error` | A setting in `.env` is missing or wrong. | The message names the setting. Fix it in `.env`. |
@@ -244,7 +244,7 @@ project folder. The full annotated list is in [`.env.example`](.env.example).
 | `SP_API_ENDPOINT` | `https://sellingpartnerapi-na.amazon.com` | `-eu` / `-fe` for other regions. |
 | `MARKETPLACE_IDS` | `ATVPDKIKX0DER` (US) | Comma-separated. |
 | `PROMOTION_LOOKBACK_DAYS` | `30` | Window of promotion **start** dates. |
-| `REPORT_POLL_INTERVAL_SECONDS` / `REPORT_POLL_TIMEOUT_SECONDS` | `30` / `1800` | |
+| `REPORT_POLL_INTERVAL_SECONDS` / `REPORT_POLL_TIMEOUT_SECONDS` | `30` / `7200` | |
 | `DB_HOST` / `DB_PORT` / `DB_NAME` / `DB_USER` / `DB_PASSWORD` | — / `3306` | **Required** (except the port). |
 | `DB_TABLE` / `DB_KEY_COLUMN` | `api_promotion_data` / `promotionId` | |
 | `CREATE_TABLES` | `false` | Creates the table only if it doesn't exist. |
