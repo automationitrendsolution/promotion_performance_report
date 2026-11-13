@@ -49,11 +49,11 @@ USER_AGENT = f"PromoFlow/{__version__} (Language=Python)"
 #: HTTP statuses a second attempt can plausibly get past.
 TRANSIENT_HTTP_STATUSES = frozenset({408, 429, 500, 502, 503, 504})
 
-#: Statuses of a report Amazon has accepted but not finished.
-PENDING_STATUSES = ("IN_QUEUE", "IN_PROGRESS")
+#: Statuses of a report a run can still use: being built, or built and ready.
+REUSABLE_STATUSES = ("IN_QUEUE", "IN_PROGRESS", "DONE")
 
-#: A pending report older than this is not reused; a fresh one is requested.
-PENDING_REPORT_MAX_AGE = timedelta(hours=24)
+#: A report older than this is not reused; a fresh one is requested.
+REUSE_MAX_AGE = timedelta(hours=24)
 
 #: LWA tokens live for an hour; refresh this long before Amazon would refuse one.
 _TOKEN_EXPIRY_MARGIN_SECONDS = 60
@@ -232,20 +232,22 @@ class ReportsClient:
         )
         return str(report_id)
 
-    def find_pending_report(self) -> str | None:
-        """The newest promotion report Amazon is still building, if any.
+    def find_recent_report(self) -> str | None:
+        """The newest promotion report from the last :data:`REUSE_MAX_AGE`, if any.
 
-        A run that times out leaves its report in Amazon's queue.  Requesting
-        another one on the next run only lengthens that queue, so the newest
-        pending report from the last :data:`PENDING_REPORT_MAX_AGE` is reused
-        instead.  The lookup is best effort: if it fails, a new report is
-        requested as before.
+        Amazon can take hours to build this report.  A run that gives up
+        waiting leaves its report behind, and Amazon may finish it before the
+        next run.  Requesting another one would only queue behind it, so the
+        newest report Amazon is still building, or has finished, is reused
+        instead: at most one report a day is requested, and every run loads
+        the freshest data available.  The lookup is best effort: if it fails, a
+        new report is requested as before.
         """
         params = {
             "reportTypes": REPORT_TYPE,
-            "processingStatuses": ",".join(PENDING_STATUSES),
+            "processingStatuses": ",".join(REUSABLE_STATUSES),
             "marketplaceIds": ",".join(self._settings.marketplace_ids),
-            "createdSince": isoformat_z(now_utc() - PENDING_REPORT_MAX_AGE),
+            "createdSince": isoformat_z(now_utc() - REUSE_MAX_AGE),
             "pageSize": 100,
         }
         try:
@@ -254,7 +256,7 @@ class ReportsClient:
                 lambda: self._api("GET", f"{REPORTS_PATH}/reports", params=params),
             )
         except ReportRequestError as exc:
-            logger.warning("Could not list pending reports (%s); requesting a new one", exc)
+            logger.warning("Could not list recent reports (%s); requesting a new one", exc)
             return None
 
         reports = [
@@ -262,7 +264,7 @@ class ReportsClient:
             for r in payload.get("reports") or []
             if isinstance(r, dict)
             and r.get("reportId")
-            and r.get("processingStatus") in PENDING_STATUSES
+            and r.get("processingStatus") in REUSABLE_STATUSES
         ]
         if not reports:
             return None

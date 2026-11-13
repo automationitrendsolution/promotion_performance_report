@@ -197,15 +197,16 @@ def script_amazon(
     compression: str | None = "GZIP",
     report_id: str = "R1",
     document_id: str = "D1",
-    pending: tuple[dict[str, Any], ...] = (),
+    recent: tuple[dict[str, Any], ...] = (),
 ) -> FakeHttp:
     """Script a complete, successful report round trip.
 
-    ``pending`` is what getReports lists as still being built.  Its route is
-    added first, so the more specific per-report routes take precedence.
+    ``recent`` is what getReports lists as requested in the last day.  Its
+    route is added first, so the more specific per-report routes take
+    precedence.
     """
     body = json.dumps(document or {}).encode()
-    http.add("GET", "/reports/2021-06-30/reports", FakeResponse(200, {"reports": list(pending)}))
+    http.add("GET", "/reports/2021-06-30/reports", FakeResponse(200, {"reports": list(recent)}))
     http.add("POST", TOKEN_URL, FakeResponse(200, {"access_token": "Atza|access", "expires_in": 3600}))
     http.add("POST", "/reports/2021-06-30/reports", FakeResponse(202, {"reportId": report_id}))
     http.add(

@@ -192,7 +192,7 @@ class TestFullRun:
     ) -> None:
         script_amazon(
             http, report, report_id="R55",
-            pending=({"reportId": "R55", "processingStatus": "IN_QUEUE",
+            recent=({"reportId": "R55", "processingStatus": "IN_QUEUE",
                       "createdTime": "2026-11-12T01:00:55Z"},),
         )
 
@@ -202,13 +202,29 @@ class TestFullRun:
         assert http.calls_to("POST", "/reports/2021-06-30/reports") == []
         assert repository.count_rows() == 3
 
-    def test_an_explicit_date_range_never_reuses_a_pending_report(
+    def test_a_report_finished_since_the_last_run_is_loaded(
+        self, settings: Settings, repository: PromotionRepository, http: FakeHttp,
+        report: dict[str, Any],
+    ) -> None:
+        script_amazon(
+            http, report, report_id="R56", statuses=("DONE",),
+            recent=({"reportId": "R56", "processingStatus": "DONE",
+                     "createdTime": "2026-11-13T01:00:46Z"},),
+        )
+
+        summary = pipeline(settings, repository, http).run()
+
+        assert summary.succeeded and summary.report_id == "R56"
+        assert http.calls_to("POST", "/reports/2021-06-30/reports") == []
+        assert repository.count_rows() == 3
+
+    def test_an_explicit_date_range_never_reuses_a_recent_report(
         self, settings: Settings, repository: PromotionRepository, http: FakeHttp,
         report: dict[str, Any],
     ) -> None:
         from datetime import date
 
-        script_amazon(http, report, pending=({"reportId": "R55", "processingStatus": "IN_QUEUE"},))
+        script_amazon(http, report, recent=({"reportId": "R55", "processingStatus": "IN_QUEUE"},))
 
         summary = pipeline(
             settings, repository, http, date_from=date(2026, 9, 1), date_to=date(2026, 9, 30)

@@ -114,7 +114,8 @@ started in the last `PROMOTION_LOOKBACK_DAYS` and replaces their rows, so a
 missed day heals itself on the next run. A run normally takes a few minutes, and
 most of that is waiting for Amazon. `REPORT_POLL_TIMEOUT_SECONDS` (2 hours)
 caps it. If Amazon has not finished by then, the next run reuses that same
-report instead of adding another one to Amazon's queue.
+report (waiting for it, or loading it if Amazon has finished) instead of adding
+another one to Amazon's queue. At most one new report is requested a day.
 
 ### Option A: systemd timer
 

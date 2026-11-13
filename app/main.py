@@ -295,9 +295,9 @@ class PromotionPipeline:
                     date_to=self.options.date_to,
                 )
                 # An explicit date range asks for that window, so it is never
-                # swapped for a pending report built for another one.
+                # swapped for a recent report built for another one.
                 explicit = self.options.date_from or self.options.date_to
-                report_id = None if explicit else client.find_pending_report()
+                report_id = None if explicit else client.find_recent_report()
                 if report_id is None:
                     self.summary.window = window
                     report_id = client.create_report(window)

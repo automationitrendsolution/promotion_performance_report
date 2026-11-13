@@ -94,31 +94,45 @@ class TestToken:
         assert make_client(settings, http).create_report(WINDOW) == "R1"
 
 
-class TestFindPendingReport:
-    def test_none_pending_returns_none(self, settings: Settings, http: FakeHttp) -> None:
+class TestFindRecentReport:
+    def test_none_recent_returns_none(self, settings: Settings, http: FakeHttp) -> None:
         script_amazon(http, None)
 
-        assert make_client(settings, http).find_pending_report() is None
+        assert make_client(settings, http).find_recent_report() is None
 
         (_m, _u, kwargs), = http.calls_to("GET", "/reports/2021-06-30/reports")
         params = kwargs["params"]
         assert params["reportTypes"] == REPORT_TYPE
-        assert params["processingStatuses"] == "IN_QUEUE,IN_PROGRESS"
+        assert params["processingStatuses"] == "IN_QUEUE,IN_PROGRESS,DONE"
         assert params["marketplaceIds"] == "ATVPDKIKX0DER"
         assert params["createdSince"].endswith("Z")
 
-    def test_newest_pending_report_wins(self, settings: Settings, http: FakeHttp) -> None:
+    def test_newest_report_wins_whether_queued_or_done(
+        self, settings: Settings, http: FakeHttp
+    ) -> None:
         script_amazon(
             http,
             None,
-            pending=(
-                {"reportId": "OLD", "processingStatus": "IN_QUEUE", "createdTime": "2026-11-11T01:00:55Z"},
-                {"reportId": "NEW", "processingStatus": "IN_PROGRESS", "createdTime": "2026-11-12T05:00:37Z"},
-                {"reportId": "DONE", "processingStatus": "DONE", "createdTime": "2026-11-12T06:00:00Z"},
+            recent=(
+                {"reportId": "OLD", "processingStatus": "DONE", "createdTime": "2026-11-11T01:00:55Z"},
+                {"reportId": "NEW", "processingStatus": "IN_QUEUE", "createdTime": "2026-11-12T05:00:37Z"},
+                {"reportId": "MID", "processingStatus": "DONE", "createdTime": "2026-11-12T01:00:00Z"},
             ),
         )
 
-        assert make_client(settings, http).find_pending_report() == "NEW"
+        assert make_client(settings, http).find_recent_report() == "NEW"
+
+    def test_failed_reports_are_never_reused(self, settings: Settings, http: FakeHttp) -> None:
+        script_amazon(
+            http,
+            None,
+            recent=(
+                {"reportId": "BAD", "processingStatus": "FATAL", "createdTime": "2026-11-12T05:00:37Z"},
+                {"reportId": "GONE", "processingStatus": "CANCELLED", "createdTime": "2026-11-12T06:00:37Z"},
+            ),
+        )
+
+        assert make_client(settings, http).find_recent_report() is None
 
     def test_a_failed_lookup_falls_back_to_a_new_report(
         self, settings: Settings, http: FakeHttp
@@ -132,7 +146,7 @@ class TestFindPendingReport:
             FakeResponse(400, {"errors": [{"code": "InvalidInput", "message": "bad"}]}),
         )
 
-        assert make_client(settings, http).find_pending_report() is None
+        assert make_client(settings, http).find_recent_report() is None
 
 
 class TestCreateReport:

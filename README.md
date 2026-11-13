@@ -83,7 +83,7 @@ the data already in MySQL is untouched.**
 | `EmptyReportError` | No promotions started in the last 30 days. | Nothing. This is normal. |
 | `AuthenticationError` | Amazon no longer accepts the login. Usually the app was disconnected in Seller Central. | Reconnect the app in Seller Central and put the new refresh token in `.env`. |
 | `DatabaseError` | MySQL was unreachable or refused the save. | Check that the database server is up, then run again. The downloaded report is in `data\failed\`. |
-| `still IN_QUEUE` / `still IN_PROGRESS` | Amazon took more than 2 hours. | Nothing. The next run picks up the same report instead of asking for a new one. To load it sooner, run the command shown in the message. |
+| `still IN_QUEUE` / `still IN_PROGRESS` | Amazon took more than 2 hours. | Nothing. The next run picks up the same report, waiting for it or loading it if Amazon has finished, instead of asking for a new one. To load it sooner, run the command shown in the message. |
 | `FATAL` | Amazon could not build the report. | Run again. If it keeps happening, see [Troubleshooting](#troubleshooting). |
 | `LockError` | It was already running. | Nothing. The second copy stopped on purpose. |
 | `Configuration error` | A setting in `.env` is missing or wrong. | The message names the setting. Fix it in `.env`. |
